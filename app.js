@@ -67,16 +67,6 @@ const logEl = document.getElementById("log");
 const msgInput = document.getElementById("msgInput");
 const sendBtn = document.getElementById("sendBtn");
 
-// Aktív
-chatStatus.textContent = "Aktív";
-chatStatus.style.color = "#48ff93";
-// Offline
-chatStatus.textContent = "Offline";
-chatStatus.style.color = "#ff4d4d";
-// Utoljára aktív
-chatStatus.textContent = "Utoljára aktív: " + time;
-chatStatus.style.color = "#ffd54a";
-
 // ---------- STATE ----------
 let mode = "login";
 let me = { uid: null, username: null };
@@ -473,22 +463,59 @@ async function selectChat(chatId, otherUid, otherUsername) {
   chatView.classList.remove("hidden");
   setAvatar(chatAvatar, otherUsername);
   chatUsername.textContent = otherUsername;
-  onValue(ref(db, "users/" + otherUid), (snap) => {
+onValue(ref(db, "users/" + otherUid), (snap) => {
     const user = snap.val();
 
     if (!user) return;
 
     if (user.online) {
-    chatStatus.textContent = "🟢 Aktív";
-    chatStatus.style.color = "#22c55e";
-    return;
+        chatStatus.textContent = "Aktív";
+        chatStatus.style.color = "#48ff93";
+        return;
     }
 
     if (!user.lastSeen) {
-    chatStatus.textContent = "🔴 Offline";
-    chatStatus.style.color = "#ef4444";
-    return;
+        chatStatus.textContent = "Offline";
+        chatStatus.style.color = "#ff4d4d";
+        return;
     }
+
+    const last = new Date(Number(user.lastSeen));
+    const now = new Date();
+
+    const sameDay =
+        last.getFullYear() === now.getFullYear() &&
+        last.getMonth() === now.getMonth() &&
+        last.getDate() === now.getDate();
+
+    const yesterday = new Date(now);
+    yesterday.setDate(now.getDate() - 1);
+
+    const isYesterday =
+        last.getFullYear() === yesterday.getFullYear() &&
+        last.getMonth() === yesterday.getMonth() &&
+        last.getDate() === yesterday.getDate();
+
+    const time = last.toLocaleTimeString("hu-HU", {
+        hour: "2-digit",
+        minute: "2-digit"
+    });
+
+    if (sameDay) {
+        chatStatus.textContent = "Utoljára aktív: " + time;
+        chatStatus.style.color = "#ffd54a";
+    } else if (isYesterday) {
+        chatStatus.textContent = "Utoljára aktív: tegnap " + time;
+        chatStatus.style.color = "#ff4d4d";
+    } else {
+        chatStatus.textContent =
+            "Utoljára aktív: " +
+            last.toLocaleDateString("hu-HU") +
+            " " +
+            time;
+        chatStatus.style.color = "#ff4d4d";
+    }
+});
 
     const last = new Date(user.lastSeen);
     const now = new Date();
