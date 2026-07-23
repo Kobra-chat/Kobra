@@ -16,6 +16,7 @@ import {
   update,
   runTransaction,
   onValue,
+  onDisconnect,
   query,
   orderByKey,
   startAt,
@@ -61,6 +62,7 @@ const emptyState = document.getElementById("emptyState");
 const chatView = document.getElementById("chatView");
 const chatAvatar = document.getElementById("chatAvatar");
 const chatUsername = document.getElementById("chatUsername");
+const chatStatus = document.getElementById("chatStatus");
 const logEl = document.getElementById("log");
 const msgInput = document.getElementById("msgInput");
 const sendBtn = document.getElementById("sendBtn");
@@ -227,7 +229,15 @@ function translateAuthError(e) {
   return "Hiba történt: " + (e.message || code);
 }
 
-logoutBtn.addEventListener("click", () => signOut(auth));
+logoutBtn.addEventListener("click", async () => {
+
+  await update(ref(db, "users/" + me.uid), {
+    online: false
+  });
+
+  signOut(auth);
+
+});
 
 // ---------- AUTH ÁLLAPOT ----------
 onAuthStateChanged(auth, async (user) => {
@@ -244,6 +254,11 @@ onAuthStateChanged(auth, async (user) => {
 
       myUsernameEl.textContent = me.username;
       setAvatar(myAvatar, me.username);
+      await update(ref(db, "users/" + me.uid), {
+        online: true
+      });
+
+      onDisconnect(ref(db, "users/" + me.uid + "/online")).set(false);
 
       authScreen.classList.add("hidden");
       appScreen.classList.remove("hidden");
@@ -444,6 +459,13 @@ async function selectChat(chatId, otherUid, otherUsername) {
   chatView.classList.remove("hidden");
   setAvatar(chatAvatar, otherUsername);
   chatUsername.textContent = otherUsername;
+  onValue(ref(db, "users/" + otherUid + "/online"), (snap) => {
+  if (snap.val() === true) {
+    chatStatus.textContent = "Aktív";
+  } else {
+    chatStatus.textContent = "Offline";
+  }
+  });
   logEl.innerHTML = "";
   loadedMessageKeys.clear();
   detachMessagesListener();
