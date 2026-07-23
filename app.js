@@ -5,6 +5,7 @@ import {
   signInWithEmailAndPassword,
   onAuthStateChanged,
   signOut,
+  deleteUser,
   setPersistence,
   browserLocalPersistence
 } from "https://www.gstatic.com/firebasejs/10.13.0/firebase-auth.js";
@@ -25,28 +26,37 @@ import {
   serverTimestamp
 } from "https://www.gstatic.com/firebasejs/10.13.0/firebase-database.js";
 import { firebaseConfig } from "./firebase-config.js";
+
 const EMAIL_SUFFIX = "@kobra-chat.local";
+
 const app = initializeApp(firebaseConfig);
 const auth = getAuth(app);
 const db = getDatabase(app);
+
 setPersistence(auth, browserLocalPersistence).catch(() => {});
+
 // ---------- DOM ----------
 const loadingScreen = document.getElementById("loadingScreen");
 const authScreen = document.getElementById("authScreen");
 const appScreen = document.getElementById("appScreen");
+
 const tabLogin = document.getElementById("tabLogin");
 const tabRegister = document.getElementById("tabRegister");
 const authUsername = document.getElementById("authUsername");
 const authPassword = document.getElementById("authPassword");
 const authSubmit = document.getElementById("authSubmit");
 const authError = document.getElementById("authError");
+
 const myAvatar = document.getElementById("myAvatar");
 const myUsernameEl = document.getElementById("myUsername");
 const logoutBtn = document.getElementById("logoutBtn");
+
 const searchInput = document.getElementById("searchInput");
 const searchResults = document.getElementById("searchResults");
+
 const convList = document.getElementById("convList");
 const convEmptyHint = document.getElementById("convEmptyHint");
+
 const emptyState = document.getElementById("emptyState");
 const chatView = document.getElementById("chatView");
 const chatAvatar = document.getElementById("chatAvatar");
@@ -54,6 +64,7 @@ const chatUsername = document.getElementById("chatUsername");
 const logEl = document.getElementById("log");
 const msgInput = document.getElementById("msgInput");
 const sendBtn = document.getElementById("sendBtn");
+
 // ---------- STATE ----------
 let mode = "login";
 let me = { uid: null, username: null };
@@ -62,29 +73,36 @@ let messagesUnsub = null;
 let convUnsub = null;
 let loadedMessageKeys = new Set();
 let sending = false;
+
 // ---------- SEGÉD ----------
 function showError(msg) {
   authError.textContent = msg;
   authError.style.display = "block";
 }
+
 function clearError() {
   authError.style.display = "none";
 }
+
 function escapeHtml(s) {
   const d = document.createElement("div");
   d.textContent = s;
   return d.innerHTML;
 }
+
 function initials(name) {
   return (name || "?").slice(0, 2).toUpperCase();
 }
+
 function colorFor(name) {
   let hash = 0;
   for (let i = 0; i < name.length; i++) {
     hash = name.charCodeAt(i) + ((hash << 5) - hash);
-  }const hue = Math.abs(hash) % 360;
+  }
+  const hue = Math.abs(hash) % 360;
   return `hsl(${hue}, 58%, 52%)`;
 }
+
 function toMillis(ts) {
   if (!ts) return 0;
   if (typeof ts === "number") return ts;
@@ -94,6 +112,7 @@ function toMillis(ts) {
   const parsed = Date.parse(ts);
   return Number.isNaN(parsed) ? 0 : parsed;
 }
+
 function formatTime(ts) {
   const ms = toMillis(ts);
   if (!ms) return "";
@@ -105,13 +124,16 @@ function formatTime(ts) {
   }
   return d.toLocaleDateString("hu-HU", { month: "short", day: "numeric" });
 }
+
 function normalizeUsername(raw) {
   return raw.trim().toLowerCase();
 }
+
 function setAvatar(el, username) {
   el.textContent = initials(username);
   el.style.background = colorFor(username);
 }
+
 // ---------- AUTH TAB VÁLTÁS ----------
 tabLogin.addEventListener("click", () => {
   mode = "login";
@@ -120,6 +142,7 @@ tabLogin.addEventListener("click", () => {
   authSubmit.textContent = "Bejelentkezés";
   clearError();
 });
+
 tabRegister.addEventListener("click", () => {
   mode = "register";
   tabRegister.classList.add("active");
@@ -127,14 +150,17 @@ tabRegister.addEventListener("click", () => {
   authSubmit.textContent = "Regisztráció";
   clearError();
 });
+
 authSubmit.addEventListener("click", handleAuth);
 authPassword.addEventListener("keydown", (e) => {
   if (e.key === "Enter") handleAuth();
 });
+
 async function handleAuth() {
   clearError();
   const username = normalizeUsername(authUsername.value);
   const password = authPassword.value;
+
   if (!username || username.length < 3) {
     showError("A felhasználónév legalább 3 karakter legyen.");
     return;
@@ -147,27 +173,33 @@ async function handleAuth() {
     showError("A jelszó legalább 6 karakter legyen.");
     return;
   }
+
   authSubmit.disabled = true;
   const email = username + EMAIL_SUFFIX;
+
   try {
     if (mode === "register") {
+      const cred = await createUserWithEmailAndPassword(auth, email, password);
       const usernameRef = ref(db, "usersByName/" + username);
-      const reserve = await runTransaction(usernameRef, (current) => {
+
+      const claim = await runTransaction(usernameRef, (current) => {
         if (current !== null) return;
-        return "pending";
+        return cred.user.uid;
       });
-      if (!reserve.committed) {
+
+      if (!claim.committed) {
+        await deleteUser(cred.user);
         showError("Ez a felhasználónév már foglalt.");
         return;
       }
+
       try {
-        const cred = await createUserWithEmailAndPassword(auth, email, password);
         await update(ref(db), {
-          ["usersByName/" + username]: cred.user.uid,
           ["users/" + cred.user.uid]: { username, createdAt: serverTimestamp() }
         });
       } catch (e) {
         await runTransaction(usernameRef, () => null);
+        await deleteUser(cred.user);
         throw e;
       }
     } else {
@@ -179,10 +211,12 @@ async function handleAuth() {
     authSubmit.disabled = false;
   }
 }
+
 function translateAuthError(e) {
   const code = e.code || "";
   if (code.includes("wrong-password") || code.includes("invalid-credential")) {
-    return "Hibás felhasználónév vagy jelszó.";}
+    return "Hibás felhasználónév vagy jelszó.";
+  }
   if (code.includes("user-not-found")) return "Nincs ilyen felhasználó.";
   if (code.includes("email-already-in-use")) return "Ez a felhasználónév már foglalt.";
   if (code.includes("weak-password")) return "A jelszó túl gyenge, legalább 6 karakter kell.";
@@ -192,10 +226,13 @@ function translateAuthError(e) {
   }
   return "Hiba történt: " + (e.message || code);
 }
+
 logoutBtn.addEventListener("click", () => signOut(auth));
+
 // ---------- AUTH ÁLLAPOT ----------
 onAuthStateChanged(auth, async (user) => {
   loadingScreen.classList.add("hidden");
+
   if (user) {
     try {
       const snap = await get(ref(db, "users/" + user.uid));
@@ -204,8 +241,10 @@ onAuthStateChanged(auth, async (user) => {
         uid: user.uid,
         username: data.username || user.email.split("@")[0]
       };
+
       myUsernameEl.textContent = me.username;
       setAvatar(myAvatar, me.username);
+
       authScreen.classList.add("hidden");
       appScreen.classList.remove("hidden");
       attachConvListener();
@@ -222,8 +261,10 @@ onAuthStateChanged(auth, async (user) => {
     authScreen.classList.remove("hidden");
   }
 });
+
 // ---------- KERESÉS ----------
 let searchTimer = null;
+
 searchInput.addEventListener("input", () => {
   clearTimeout(searchTimer);
   const term = normalizeUsername(searchInput.value);
@@ -234,6 +275,7 @@ searchInput.addEventListener("input", () => {
   }
   searchTimer = setTimeout(() => runSearch(term), 250);
 });
+
 async function runSearch(term) {
   try {
     const usersRef = ref(db, "usersByName");
@@ -246,12 +288,14 @@ async function runSearch(term) {
     );
     const snap = await get(q);
     const results = [];
+
     snap.forEach((child) => {
       const uid = child.val();
       if (child.key !== me.username && uid && uid !== "pending") {
         results.push({ username: child.key, uid });
       }
     });
+
     if (results.length === 0) {
       searchResults.innerHTML = '<div class="search-empty">Nincs ilyen felhasználó.</div>';
     } else {
@@ -278,26 +322,32 @@ async function runSearch(term) {
         searchResults.appendChild(item);
       });
     }
+
     searchResults.classList.remove("hidden");
   } catch (e) {
     searchResults.innerHTML = '<div class="search-empty">Keresési hiba. Ellenőrizd a Firebase szabályokat.</div>';
     searchResults.classList.remove("hidden");
   }
 }
+
 document.addEventListener("click", (e) => {
   if (!searchResults.contains(e.target) && e.target !== searchInput) {
     searchResults.classList.add("hidden");
   }
 });
+
 // ---------- BESZÉLGETÉS ----------
 function chatIdFor(uidA, uidB) {
   return [uidA, uidB].sort().join("_");
 }
+
 async function openChatWith(otherUid, otherUsername) {
   if (otherUid === me.uid) return;
+
   const chatId = chatIdFor(me.uid, otherUid);
   const myEntryRef = ref(db, "userChats/" + me.uid + "/" + chatId);
   const snap = await get(myEntryRef);
+
   if (!snap.exists()) {
     const now = serverTimestamp();
     await update(ref(db), {
@@ -315,8 +365,10 @@ async function openChatWith(otherUid, otherUsername) {
       }
     });
   }
+
   selectChat(chatId, otherUid, otherUsername);
 }
+
 function attachConvListener() {
   detachConvListener();
   const convRef = ref(db, "userChats/" + me.uid);
@@ -324,8 +376,10 @@ function attachConvListener() {
     const data = snap.val() || {};
     const items = Object.entries(data).map(([chatId, v]) => ({ chatId, ...v }));
     items.sort((a, b) => toMillis(b.lastTs) - toMillis(a.lastTs));
+
     convEmptyHint.style.display = items.length === 0 ? "block" : "none";
     convList.querySelectorAll(".conv-item").forEach((el) => el.remove());
+
     items.forEach((item) => {
       const el = document.createElement("button");
       el.type = "button";
@@ -355,12 +409,14 @@ function attachConvListener() {
     });
   });
 }
+
 function detachConvListener() {
   if (convUnsub) {
     convUnsub();
     convUnsub = null;
   }
 }
+
 function resetChatView() {
   activeChat = null;
   detachMessagesListener();
@@ -369,24 +425,31 @@ function resetChatView() {
   logEl.innerHTML = "";
   loadedMessageKeys.clear();
 }
+
 function detachMessagesListener() {
   if (messagesUnsub) {
     messagesUnsub();
     messagesUnsub = null;
   }
 }
+
 async function selectChat(chatId, otherUid, otherUsername) {
   activeChat = { chatId, otherUid, otherUsername };
+
   document.querySelectorAll(".conv-item").forEach((el) => {
     el.classList.toggle("active", el.querySelector(".conv-name")?.textContent === otherUsername);
-  });emptyState.classList.add("hidden");
+  });
+
+  emptyState.classList.add("hidden");
   chatView.classList.remove("hidden");
   setAvatar(chatAvatar, otherUsername);
   chatUsername.textContent = otherUsername;
   logEl.innerHTML = "";
   loadedMessageKeys.clear();
   detachMessagesListener();
+
   const messagesRef = ref(db, "chats/" + chatId + "/messages");
+
   try {
     const snap = await get(messagesRef);
     const messages = [];
@@ -401,13 +464,16 @@ async function selectChat(chatId, otherUid, otherUsername) {
   } catch (e) {
     logEl.innerHTML = '<div class="log-error">Nem sikerült betölteni az üzeneteket.</div>';
   }
+
   messagesUnsub = onChildAdded(messagesRef, (snap) => {
     if (loadedMessageKeys.has(snap.key)) return;
     loadedMessageKeys.add(snap.key);
     appendMessage({ key: snap.key, ...snap.val() });
   });
+
   msgInput.focus();
 }
+
 function appendMessage(m) {
   const div = document.createElement("div");
   div.className = "entry " + (m.senderUid === me.uid ? "mine" : "");
@@ -421,18 +487,23 @@ function appendMessage(m) {
   logEl.appendChild(div);
   logEl.scrollTop = logEl.scrollHeight;
 }
+
 // ---------- ÜZENETKÜLDÉS ----------
 sendBtn.addEventListener("click", sendMessage);
 msgInput.addEventListener("keydown", (e) => {
   if (e.key === "Enter") sendMessage();
 });
+
 async function sendMessage() {
   const text = msgInput.value.trim();
   if (!text || !activeChat || sending) return;
+
   sending = true;
   sendBtn.disabled = true;
   msgInput.value = "";
+
   const { chatId, otherUid } = activeChat;
+
   try {
     await push(ref(db, "chats/" + chatId + "/messages"), {
       senderUid: me.uid,
@@ -440,6 +511,7 @@ async function sendMessage() {
       text,
       ts: serverTimestamp()
     });
+
     const now = serverTimestamp();
     await update(ref(db), {
       ["userChats/" + me.uid + "/" + chatId + "/lastMessage"]: text,
