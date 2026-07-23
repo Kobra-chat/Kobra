@@ -75,7 +75,6 @@ let messagesUnsub = null;
 let convUnsub = null;
 let loadedMessageKeys = new Set();
 let sending = false;
-let typingTimeout = null;
 
 // ---------- SEGÉD ----------
 function showError(msg) {
@@ -468,17 +467,7 @@ onValue(ref(db, "users/" + otherUid), (snap) => {
     const user = snap.val();
 
     if (!user) return;
-const typingRef = ref(db, "typing/" + chatId + "/" + otherUid);
 
-onValue(typingRef, (typingSnap) => {
-
-    if (typingSnap.val() === true) {
-        chatStatus.textContent = otherUsername + " gépel...";
-        chatStatus.style.color = "#3ea6ff";
-        return;
-    }
-
-});
     if (user.online) {
         chatStatus.textContent = "Aktív";
         chatStatus.style.color = "#48ff93";
@@ -527,17 +516,6 @@ onValue(typingRef, (typingSnap) => {
         chatStatus.style.color = "#ff4d4d";
     }
 });
-  onValue(
-    ref(db, "typing/" + chatId + "/" + otherUid),
-    (snap) => {
-
-        if (snap.val() === true) {
-            chatStatus.textContent = otherUsername + " gépel...";
-            chatStatus.style.color = "#3ea6ff";
-        }
-
-    }
-);
 
   logEl.innerHTML = "";
   loadedMessageKeys.clear();
@@ -585,25 +563,8 @@ function appendMessage(m) {
 
 // ---------- ÜZENETKÜLDÉS ----------
 sendBtn.addEventListener("click", sendMessage);
-msgInput.addEventListener("keydown", async (e) => {
-
-    if (activeChat) {
-        await set(
-            ref(db, "typing/" + activeChat.chatId + "/" + me.uid),
-            true
-        );
-
-        clearTimeout(typingTimeout);
-
-        typingTimeout = setTimeout(() => {
-            set(
-                ref(db, "typing/" + activeChat.chatId + "/" + me.uid),
-                false
-            );
-        }, 1500);
-    }
-
-    if (e.key === "Enter") sendMessage();
+msgInput.addEventListener("keydown", (e) => {
+  if (e.key === "Enter") sendMessage();
 });
 
 async function sendMessage() {
@@ -635,13 +596,6 @@ async function sendMessage() {
       ["userChats/" + otherUid + "/" + chatId + "/lastMessage"]: text,
       ["userChats/" + otherUid + "/" + chatId + "/lastTs"]: now
     });
-
-    if (activeChat) {
-      await set(
-        ref(db, "typing/" + activeChat.chatId + "/" + me.uid),
-        false
-    );
-}
   } catch (e) {
     msgInput.value = text;
   } finally {
