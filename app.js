@@ -261,7 +261,7 @@ onAuthStateChanged(auth, async (user) => {
 
       onDisconnect(ref(db, "users/" + me.uid)).update({
         online: false,
-        lastSeen: Date.now()
+        lastSeen: serverTimestamp()
       });
 
       authScreen.classList.add("hidden");
@@ -469,13 +469,15 @@ async function selectChat(chatId, otherUid, otherUsername) {
     if (!user) return;
 
     if (user.online) {
-        chatStatus.textContent = "🟢 Aktív";
-        return;
+    chatStatus.textContent = "🟢 Aktív";
+    chatStatus.style.color = "#22c55e";
+    return;
     }
 
     if (!user.lastSeen) {
-        chatStatus.textContent = "🔴 Offline";
-        return;
+    chatStatus.textContent = "🔴 Offline";
+    chatStatus.style.color = "#ef4444";
+    return;
     }
 
     const last = new Date(user.lastSeen);
@@ -500,15 +502,18 @@ async function selectChat(chatId, otherUid, otherUsername) {
     });
 
     if (sameDay) {
-        chatStatus.textContent = "🟡 Utoljára aktív: " + time;
+    chatStatus.textContent = "🟡 Utoljára aktív: " + time;
+    chatStatus.style.color = "#facc15";
     } else if (isYesterday) {
-        chatStatus.textContent = "🔴 Utoljára aktív: tegnap " + time;
+    chatStatus.textContent = "🔴 Utoljára aktív: tegnap " + time;
+    chatStatus.style.color = "#ef4444";
     } else {
-        chatStatus.textContent =
-            "🔴 Utoljára aktív: " +
-            last.toLocaleDateString("hu-HU") +
-            " " +
-            time;
+    chatStatus.textContent =
+        "🔴 Utoljára aktív: " +
+        last.toLocaleDateString("hu-HU") +
+        " " +
+        time;
+    chatStatus.style.color = "#ef4444";
     }
   });
   logEl.innerHTML = "";
