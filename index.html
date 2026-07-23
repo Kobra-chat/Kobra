@@ -1,0 +1,50 @@
+<!DOCTYPE html>
+<html lang="hu">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Csatorna — real-time vonal</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+<div class="rig">
+  <div class="rig-head">
+    <h1>Csatorna</h1>
+    <span class="freq" id="freqLabel">— nincs kapcsolat —</span>
+  </div>
+
+  <!-- SETUP -->
+  <div class="screen" id="setupScreen">
+    <label for="room">Szoba neve</label>
+    <input type="text" id="room" placeholder="pl. anna-es-peter">
+    <div class="hint">Bármit beírhatsz — a másik embernek ugyanezt kell megadnia. Csak két név férhet el egy szobában.</div>
+
+    <label for="name">A neved</label>
+    <input type="text" id="name" placeholder="pl. Anna">
+
+    <button id="joinBtn">Csatlakozás a vonalhoz</button>
+    <div class="error" id="setupError"></div>
+  </div>
+
+  <!-- CHAT -->
+  <div class="hidden" id="chatScreen">
+    <div class="status-bar">
+      <span class="dot"></span>
+      <span id="participantsLabel">kapcsolódva</span>
+    </div>
+    <div class="log" id="log"></div>
+    <div class="composer">
+      <input type="text" id="msgInput" placeholder="Írj valamit...">
+      <button id="sendBtn">Küldés</button>
+    </div>
+  </div>
+</div>
+
+<script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-database-compat.js"></script>
+<script src="firebase-config.js"></script>
+<script src="app.js"></script>
+
+</body>
+</html>
