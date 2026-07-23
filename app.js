@@ -1,7 +1,12 @@
-const app = firebase.initializeApp(firebaseConfig);
-const db = firebase.database();
+import { initializeApp } from "https://gstatic.com";
+import { getDatabase, ref, runTransaction, onValue, query, limitToLast, onChildAdded, push, serverTimestamp } from "https://gstatic.com";
+import { firebaseConfig } from "./firebase-config.js";
 
-let state = { room: '', name: '', roomRef: null };
+// Firebase inicializálása v10 szerint
+const app = initializeApp(firebaseConfig);
+const db = getDatabase(app);
+
+let state = { room: '', name: '', messagesRef: null };
 
 const setupScreen = document.getElementById('setupScreen');
 const chatScreen = document.getElementById('chatScreen');
@@ -45,14 +50,16 @@ joinBtn.addEventListener('click', async () => {
   joinBtn.disabled = true;
   joinBtn.textContent = 'Kapcsolódás...';
 
-  const participantsRef = db.ref('rooms/' + room + '/participants');
+  // Referencia létrehozása v10 szerint
+  const participantsRef = ref(db, 'rooms/' + room + '/participants');
 
   try{
-    const result = await participantsRef.transaction(current => {
+    // Tranzakció futtatása v10 szerint a biztonságos szobafoglaláshoz
+    const result = await runTransaction(participantsRef, (current) => {
       const participants = current || {};
       if(participants[name]) return participants;
       const names = Object.keys(participants);
-      if(names.length >= 2) return; // abort transaction -> room full
+      if(names.length >= 2) return; // abort -> megtelt
       participants[name] = true;
       return participants;
     });
@@ -71,13 +78,17 @@ joinBtn.addEventListener('click', async () => {
     chatScreen.classList.remove('hidden');
     freqLabel.textContent = 'szoba: ' + room;
 
-    participantsRef.on('value', snap => {
+    // Értékfigyelés v10 szerint
+    onValue(participantsRef, snap => {
       const participants = snap.val() || {};
       participantsLabel.textContent = Object.keys(participants).join(' • ') || 'kapcsolódva';
     });
 
-    const messagesRef = db.ref('rooms/' + room + '/messages');
-    messagesRef.limitToLast(200).on('child_added', snap => {
+    // Üzenetek lekérése v10 lekérdezéssel (query)
+    const messagesRef = ref(db, 'rooms/' + room + '/messages');
+    const messagesQuery = query(messagesRef, limitToLast(200));
+    
+    onChildAdded(messagesQuery, snap => {
       appendMessage(snap.val());
     });
 
@@ -100,9 +111,11 @@ function sendMessage(){
   const text = input.value.trim();
   if(!text || !state.messagesRef) return;
   input.value = '';
-  state.messagesRef.push({
+  
+  // Üzenet beküldése v10 szerint szerver oldali időbélyeggel
+  push(state.messagesRef, {
     name: state.name,
     text: text,
-    ts: firebase.database.ServerValue.TIMESTAMP
+    ts: serverTimestamp()
   });
 }
