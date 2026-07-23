@@ -67,6 +67,16 @@ const logEl = document.getElementById("log");
 const msgInput = document.getElementById("msgInput");
 const sendBtn = document.getElementById("sendBtn");
 
+// Aktív
+chatStatus.textContent = "Aktív";
+chatStatus.style.color = "#48ff93";
+// Offline
+chatStatus.textContent = "Offline";
+chatStatus.style.color = "#ff4d4d";
+// Utoljára aktív
+chatStatus.textContent = "Utoljára aktív: " + time;
+chatStatus.style.color = "#ffd54a";
+
 // ---------- STATE ----------
 let mode = "login";
 let me = { uid: null, username: null };
