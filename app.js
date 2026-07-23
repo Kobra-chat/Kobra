@@ -4,7 +4,7 @@ import { initializeAuth, getAuth, createUserWithEmailAndPassword, signInWithEmai
 
 // A te pontos, ellenőrzött konfigurációd
 const firebaseConfig = {
-  apiKey: "AIzaSyAytpBEZNb4cEsbpsuWz2zpszkxCTDCN2g",
+  apiKey: "AIzaSyAYtpBEZNb4cEsbpsuWz2zpszkxCTDCN2g",
   authDomain: "://firebaseapp.com",
   databaseURL: "https://firebasedatabase.app",
   projectId: "kobra-d3464",
