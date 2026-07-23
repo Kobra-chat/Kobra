@@ -115,26 +115,15 @@ authSubmit.addEventListener('click', async () => {
 
   try{
     if(mode === 'register'){
-      const usernameRef = ref(db, 'usersByName/' + username);
-      const reserve = await runTransaction(usernameRef, current => {
-        if(current !== null) return; // már foglalt -> megszakítjuk
-        return 'pending';
+      // A createUserWithEmailAndPassword maga garantálja az egyediséget,
+      // mert a felhasználónévből mindig ugyanaz az e-mail cím lesz.
+      // Ha a név foglalt, ez itt "email-already-in-use" hibával elutasít.
+      const cred = await createUserWithEmailAndPassword(auth, email, password);
+      // Csak MOST, hogy már be vagyunk jelentkezve, írhatunk az adatbázisba.
+      await update(ref(db), {
+        ['usersByName/' + username]: cred.user.uid,
+        ['users/' + cred.user.uid]: { username, createdAt: serverTimestamp() }
       });
-      if(!reserve.committed){
-        showError('Ez a felhasználónév már foglalt.');
-        authSubmit.disabled = false;
-        return;
-      }
-      try{
-        const cred = await createUserWithEmailAndPassword(auth, email, password);
-        await update(ref(db), {
-          ['usersByName/' + username]: cred.user.uid,
-          ['users/' + cred.user.uid]: { username, createdAt: serverTimestamp() }
-        });
-      } catch(e){
-        await runTransaction(usernameRef, () => null); // foglalás visszavonása
-        throw e;
-      }
     } else {
       await signInWithEmailAndPassword(auth, email, password);
     }
