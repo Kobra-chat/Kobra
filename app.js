@@ -232,11 +232,11 @@ function translateAuthError(e) {
 logoutBtn.addEventListener("click", async () => {
 
   await update(ref(db, "users/" + me.uid), {
-  online: false,
-  lastSeen: Date.now()
-});
+    online: false,
+    lastSeen: Date.now()
+  });
 
-  signOut(auth);
+  await signOut(auth);
 
 });
 
@@ -261,7 +261,7 @@ onAuthStateChanged(auth, async (user) => {
 
       onDisconnect(ref(db, "users/" + me.uid)).update({
         online: false,
-        lastSeen: serverTimestamp()
+        lastSeen: Date.now()
       });
 
       authScreen.classList.add("hidden");
