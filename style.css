@@ -659,13 +659,16 @@ color:#62ffab;
 }
 
 .chat-status::before{
-content:"";
-width:10px;
-height:10px;
-border-radius:50%;
-background:#48ff93;
-box-shadow:0 0 15px #48ff93;
-animation:onlinePulse 2s infinite;
+    content:"";
+    width:10px;
+    height:10px;
+    border-radius:50%;
+    background:currentColor;
+    box-shadow:0 0 15px currentColor;
+    animation:onlinePulse 2s infinite;
+    display:inline-block;
+    margin-right:6px;
+    flex-shrink:0;
 }
 
 @keyframes onlinePulse{
