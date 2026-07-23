@@ -1,5 +1,5 @@
-import { initializeApp } from "https://gstatic.com";
-import { getDatabase, ref, runTransaction, onValue, query, limitToLast, onChildAdded, push, serverTimestamp } from "https://gstatic.com";
+import { initializeApp } from "firebase/app";
+import { getDatabase, ref, runTransaction, onValue, query, limitToLast, onChildAdded, push, serverTimestamp } from "firebase/database";
 import { firebaseConfig } from "./firebase-config.js";
 
 // Firebase inicializálása v10 szerint
