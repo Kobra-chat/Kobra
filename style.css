@@ -14,7 +14,7 @@
   --other: #6fb8b0;
 }
 
-*{ box-sizing: border-box; }
+* { box-sizing: border-box; }
 
 body {
   margin: 0;
@@ -29,7 +29,6 @@ body {
   padding: 24px;
 }
 
-/* BETÖLTŐ ÉS BEJELENTKEZŐ ELRENDEZÉS */
 .center-screen {
   display: flex;
   justify-content: center;
@@ -64,7 +63,6 @@ body {
   text-transform: uppercase;
   font-size: 12px;
   letter-spacing: 1px;
-  transition: background 0.2s, color 0.2s;
   margin-top: 0;
   border-radius: 0;
 }
@@ -77,7 +75,6 @@ body {
 
 .screen { padding: 22px; }
 
-/* FŐ ALKALMAZÁS STRUKTÚRA */
 .app-shell {
   display: flex;
   width: 100%;
@@ -90,7 +87,6 @@ body {
   box-shadow: 0 20px 60px rgba(0,0,0,0.35);
 }
 
-/* OLDALSÓ SÁV (Sidebar) */
 .sidebar {
   width: 280px;
   border-right: 1px solid var(--wire);
@@ -190,7 +186,6 @@ body {
   border-radius: 6px;
   cursor: pointer;
   border: 1px solid transparent;
-  transition: background 0.15s;
 }
 .conv-item:hover { background: rgba(232,163,61,0.05); }
 .conv-item.active {
@@ -207,7 +202,6 @@ body {
   line-height: 1.5;
 }
 
-/* CHAT PANEL */
 .chat-panel {
   flex: 1;
   display: flex;
@@ -243,7 +237,6 @@ body {
   gap: 12px;
 }
 
-/* KÖZÖS RÁDIÓS ELEMEK */
 .rig-head {
   padding: 18px 22px;
   border-bottom: 1px solid var(--wire);
@@ -268,7 +261,6 @@ label {
   color: var(--paper-dim);
   margin: 14px 0 6px;
 }
-label:first-child { margin-top: 0; }
 
 input[type=text], input[type=password] {
   width: 100%;
@@ -297,7 +289,6 @@ button {
   cursor: pointer;
   width: 100%;
   margin-top: 20px;
-  transition: background .15s, color .15s;
 }
 button:hover { background: var(--dial); color: #241a08; }
 
@@ -356,7 +347,6 @@ button:hover { background: var(--dial); color: #241a08; }
 .composer input { flex: 1; }
 .composer button { width: auto; margin-top: 0; padding: 0 18px; }
 
-/* ANIMÁCIÓK / BETÖLTŐ GRAFIKA */
 .dial-graphic {
   display: flex;
   gap: 4px;
