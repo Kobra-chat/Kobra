@@ -1,5 +1,5 @@
 export const firebaseConfig = {
-  apiKey: "AIzaSyAytpBEZNb4cEsbpsuWz2zpszkxCTDCN2g",
+  apiKey: "AIzaSyAYtpBEZNb4cEsbpsuWz2zpszkxCTDCN2g",
   authDomain: "kobra-d3464.firebaseapp.com",
   databaseURL: "https://kobra-d3464-default-rtdb.europe-west1.firebasedatabase.app",
   projectId: "kobra-d3464",
