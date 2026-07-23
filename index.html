@@ -8,7 +8,7 @@
 </head>
 <body>
 
-<!-- BEJELENTKEZÉS / REGISZTRÁCIÓ (Mostantól azonnal ez jelenik meg) -->
+<!-- BEJELENTKEZÉS / REGISZTRÁCIÓ -->
 <div id="authScreen" class="center-screen">
   <div class="rig auth-card">
     <div class="rig-head">
@@ -79,7 +79,7 @@
   </main>
 </div>
 
-<!-- Firebase SDK-k betöltése -->
+<!-- Hivatalos, stabil Firebase könyvtárak -->
 <script src="https://gstatic.com"></script>
 <script src="https://gstatic.com"></script>
 <script src="https://gstatic.com"></script>
@@ -126,116 +126,123 @@
   let currentMyName = "";
   let currentActiveChatId = null;
 
-  tabLogin.addEventListener('click', () => {
+  tabLogin.addEventListener('click', function() {
     isLoginMode = true; tabLogin.classList.add('active'); tabRegister.classList.remove('active');
     authSubmit.textContent = "Bejelentkezés"; authError.style.display = 'none';
   });
-  tabRegister.addEventListener('click', () => {
+  tabRegister.addEventListener('click', function() {
     isLoginMode = false; tabLogin.classList.remove('active'); tabRegister.classList.add('active');
     authSubmit.textContent = "Regisztráció"; authError.style.display = 'none';
   });
 
-  auth.onAuthStateChanged(async (user) => {
+  function showError(msg) {
+    authError.textContent = msg;
+    authError.style.display = 'block';
+  }
+
+  auth.onAuthStateChanged(function(user) {
     if (user) {
-      const snap = await db.ref('users/' + user.uid).get();
-      if (snap.exists()) {
-        currentMyName = snap.val().username;
-        myUsernameLabel.textContent = currentMyName.toUpperCase();
-        myAvatar.textContent = currentMyName.charAt(0).toUpperCase();
-        
-        authScreen.classList.add('hidden');
-        appScreen.classList.remove('hidden');
-        
-        loadConversations(user.uid);
-      }
+      db.ref('users/' + user.uid).get().then(function(snap) {
+        if (snap.exists()) {
+          currentMyName = snap.val().username;
+          myUsernameLabel.textContent = currentMyName.toUpperCase();
+          myAvatar.textContent = currentMyName.charAt(0).toUpperCase();
+          authScreen.classList.add('hidden');
+          appScreen.classList.remove('hidden');
+          loadConversations(user.uid);
+        }
+      });
     } else {
       appScreen.classList.add('hidden');
       authScreen.classList.remove('hidden');
     }
   });
 
-  authSubmit.addEventListener('click', async () => {
+  authSubmit.addEventListener('click', function() {
     authError.style.display = 'none';
     const username = authUsername.value.trim();
     const password = authPassword.value.trim();
 
-    if (!username || !password) { authError.textContent = "HIBA: TÖLTS KI MINDEN MEZŐT!"; authError.style.display = 'block'; return; }
-    if (password.length < 6) { authError.textContent = "HIBA: MINIMUM 6 KARAKTER JELSZÓ!"; authError.style.display = 'block'; return; }
+    if (!username || !password) { showError("HIBA: TÖLTS KI MINDEN MEZŐT!"); return; }
+    if (password.length < 6) { showError("HIBA: MINIMUM 6 KARAKTER JELSZÓ!"); return; }
 
     const fakeEmail = username.toLowerCase() + "@kobra-chat.local";
 
     if (!isLoginMode) {
-      try {
-        const userCredential = await auth.createUserWithEmailAndPassword(fakeEmail, password);
-        const uid = userCredential.user.uid;
-        
-        await db.ref('users/' + uid).set({ username: username, email: fakeEmail });
-        await db.ref('usersByName/' + username.toLowerCase()).set({ uid: uid });
-      } catch (error) {
-        authError.textContent = "REGISZTRÁCIÓS HIBA: " + error.message.toUpperCase();
-        authError.style.display = 'block';
-      }
+      // REGISZTRÁCIÓ
+      db.ref('usersByName/' + username.toLowerCase()).get().then(function(nameCheck) {
+        if (nameCheck.exists()) {
+          showError("HIBA: EZ A NÉV MÁR FOGLALT!");
+        } else {
+          auth.createUserWithEmailAndPassword(fakeEmail, password)
+            .then(function(userCredential) {
+              const uid = userCredential.user.uid;
+              db.ref('users/' + uid).set({ username: username, email: fakeEmail });
+              db.ref('usersByName/' + username.toLowerCase()).set({ uid: uid });
+            })
+            .catch(function(error) {
+              showError("REGISZTRÁCIÓS HIBA: " + error.message.toUpperCase());
+            });
+        }
+      });
     } else {
-      try {
-        await auth.signInWithEmailAndPassword(fakeEmail, password);
-      } catch (error) {
-        authError.textContent = "HIBA: HIBÁS NÉV VAGY JELSZÓ!";
-        authError.style.display = 'block';
-      }
+      // BEJELENTKEZÉS
+      auth.signInWithEmailAndPassword(fakeEmail, password).catch(function(error) {
+        showError("HIBA: HIBÁS NÉV VAGY JELSZÓ!");
+      });
     }
   });
 
-  searchInput.addEventListener('input', async () => {
+  searchInput.addEventListener('input', function() {
     const queryText = searchInput.value.trim().toLowerCase();
     if (!queryText) { searchResults.classList.add('hidden'); return; }
     
-    const snap = await db.ref('usersByName').get();
-    searchResults.innerHTML = '';
-    let found = false;
+    db.ref('usersByName').get().then(function(snap) {
+      searchResults.innerHTML = '';
+      let found = false;
 
-    if (snap.exists()) {
-      const allUsers = snap.val();
-      Object.keys(allUsers).forEach(name => {
-        if (name.includes(queryText) && name !== currentMyName.toLowerCase()) {
-          found = true;
-          const div = document.createElement('div');
-          div.className = 'search-item';
-          div.textContent = name.toUpperCase();
-          div.addEventListener('click', () => startChat(allUsers[name].uid, name));
-          searchResults.appendChild(div);
-        }
-      });
-    }
-    
-    if (found) searchResults.classList.remove('hidden');
-    else searchResults.classList.add('hidden');
+      if (snap.exists()) {
+        const allUsers = snap.val();
+        Object.keys(allUsers).forEach(function(name) {
+          if (name.includes(queryText) && name !== currentMyName.toLowerCase()) {
+            found = true;
+            const div = document.createElement('div');
+            div.className = 'search-item';
+            div.textContent = name.toUpperCase();
+            div.addEventListener('click', function() { startChat(allUsers[name].uid, name); });
+            searchResults.appendChild(div);
+          }
+        });
+      }
+      if (found) searchResults.classList.remove('hidden');
+      else searchResults.classList.add('hidden');
+    });
   });
 
-  async function startChat(targetUid, targetName) {
+  function startChat(targetUid, targetName) {
     searchResults.classList.add('hidden');
     searchInput.value = '';
     const myUid = auth.currentUser.uid;
     const chatId = myUid < targetUid ? myUid + "_" + targetUid : targetUid + "_" + myUid;
 
-    await db.ref('userChats/' + myUid + '/' + chatId).set({ otherUid: targetUid, otherName: targetName.toUpperCase() });
-    await db.ref('userChats/' + targetUid + '/' + chatId).set({ otherUid: myUid, otherName: currentMyName.toUpperCase() });
-
+    db.ref('userChats/' + myUid + '/' + chatId).set({ otherUid: targetUid, otherName: targetName.toUpperCase() });
+    db.ref('userChats/' + targetUid + '/' + chatId).set({ otherUid: myUid, otherName: currentMyName.toUpperCase() });
     openChat(chatId, targetName.toUpperCase());
   }
 
   function loadConversations(uid) {
-    db.ref('userChats/' + uid).on('value', snap => {
+    db.ref('userChats/' + uid).on('value', function(snap) {
       convList.innerHTML = '';
       const chats = snap.val();
       if (!chats) { convEmptyHint.classList.remove('hidden'); return; }
       
       convEmptyHint.classList.add('hidden');
-      Object.keys(chats).forEach(chatId => {
+      Object.keys(chats).forEach(function(chatId) {
         const item = document.createElement('div');
         item.className = 'conv-item';
         if (chatId === currentActiveChatId) item.classList.add('active');
         item.innerHTML = `<div class="avatar">${chats[chatId].otherName.charAt(0)}</div><span>${chats[chatId].otherName}</span>`;
-        item.addEventListener('click', () => openChat(chatId, chats[chatId].otherName));
+        item.addEventListener('click', function() { openChat(chatId, chats[chatId].otherName); });
         convList.appendChild(item);
       });
     });
@@ -249,7 +256,3 @@
     chatAvatar.textContent = otherName.charAt(0);
     logEl.innerHTML = '';
 
-    db.ref('chats/' + chatId).off();
-    db.ref('chats/' + chatId).limitToLast(100).on('child_added', snap => {
-      const m = snap.val();
-      const div = document.createElement('div');
