@@ -41,10 +41,18 @@
   </div>
 </div>
 
-<script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-app-compat.js"></script>
-<script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-database-compat.js"></script>
-<script src="firebase-config.js"></script>
-<script src="app.js"></script>
+<!-- Modern Firebase v10+ modul betöltő (Import Map) -->
+<script type="importmap">
+  {
+    "imports": {
+      "firebase/app": "https://gstatic.com",
+      "firebase/database": "https://gstatic.com"
+    }
+  }
+</script>
+
+<!-- Az app.js modulként való indítása -->
+<script type="module" src="app.js"></script>
 
 </body>
 </html>
