@@ -8,15 +8,8 @@
 </head>
 <body>
 
-<!-- BETÖLTÉS -->
-<div id="loadingScreen" class="center-screen">
-  <div class="dial-graphic" aria-hidden="true">
-    <span></span><span></span><span></span><span></span><span></span>
-  </div>
-</div>
-
-<!-- BEJELENTKEZÉS / REGISZTRÁCIÓ -->
-<div id="authScreen" class="center-screen hidden">
+<!-- BEJELENTKEZÉS / REGISZTRÁCIÓ (Mostantól azonnal ez jelenik meg) -->
+<div id="authScreen" class="center-screen">
   <div class="rig auth-card">
     <div class="rig-head">
       <div class="dial-graphic" aria-hidden="true">
@@ -92,7 +85,6 @@
 <script src="https://gstatic.com"></script>
 
 <script>
-  // A te hajszálpontos, nagy Y betűs konfigurációd
   const firebaseConfig = {
     apiKey: "AIzaSyAYtpBEZNb4cEsbpsuWz2zpszkxCTDCN2g",
     authDomain: "://firebaseapp.com",
@@ -107,7 +99,6 @@
   const db = firebase.database();
   const auth = firebase.auth();
 
-  const loadingScreen = document.getElementById('loadingScreen');
   const authScreen = document.getElementById('authScreen');
   const appScreen = document.getElementById('appScreen');
   const tabLogin = document.getElementById('tabLogin');
@@ -152,16 +143,12 @@
         myUsernameLabel.textContent = currentMyName.toUpperCase();
         myAvatar.textContent = currentMyName.charAt(0).toUpperCase();
         
-        loadingScreen.classList.add('hidden');
         authScreen.classList.add('hidden');
         appScreen.classList.remove('hidden');
         
         loadConversations(user.uid);
-      } else {
-        auth.signOut();
       }
     } else {
-      loadingScreen.classList.add('hidden');
       appScreen.classList.add('hidden');
       authScreen.classList.remove('hidden');
     }
@@ -256,3 +243,13 @@
 
   function openChat(chatId, otherName) {
     currentActiveChatId = chatId;
+    emptyState.classList.add('hidden');
+    chatView.classList.remove('hidden');
+    chatUsernameLabel.textContent = otherName;
+    chatAvatar.textContent = otherName.charAt(0);
+    logEl.innerHTML = '';
+
+    db.ref('chats/' + chatId).off();
+    db.ref('chats/' + chatId).limitToLast(100).on('child_added', snap => {
+      const m = snap.val();
+      const div = document.createElement('div');
