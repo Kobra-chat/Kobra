@@ -3,48 +3,89 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Csatorna — real-time vonal</title>
+<title>Csatorna</title>
 <link rel="stylesheet" href="style.css">
 </head>
 <body>
 
-<div class="rig">
-  <div class="rig-head">
-    <div class="dial-graphic" aria-hidden="true">
-      <span></span><span></span><span></span><span></span><span></span>
-    </div>
-    <h1>Csatorna</h1>
-    <span class="freq" id="freqLabel">nincs kapcsolat</span>
+<!-- BETÖLTÉS -->
+<div id="loadingScreen" class="center-screen">
+  <div class="dial-graphic" aria-hidden="true">
+    <span></span><span></span><span></span><span></span><span></span>
   </div>
+</div>
 
-  <!-- SETUP -->
-  <div class="screen" id="setupScreen">
-    <label for="room">Szoba neve</label>
-    <input type="text" id="room" placeholder="pl. anna-es-peter" autocomplete="off">
-    <div class="hint">Bármit beírhatsz — a másik embernek ugyanezt kell megadnia. Csak két név férhet el egy szobában.</div>
-
-    <label for="name">A neved</label>
-    <input type="text" id="name" placeholder="pl. Anna" autocomplete="off">
-
-    <button id="joinBtn">Csatlakozás a vonalhoz</button>
-    <div class="error" id="setupError"></div>
-  </div>
-
-  <!-- CHAT -->
-  <div class="hidden" id="chatScreen">
-    <div class="status-bar">
-      <span class="dot"></span>
-      <span id="participantsLabel">kapcsolódva</span>
+<!-- BEJELENTKEZÉS / REGISZTRÁCIÓ -->
+<div id="authScreen" class="center-screen hidden">
+  <div class="rig auth-card">
+    <div class="rig-head">
+      <div class="dial-graphic" aria-hidden="true">
+        <span></span><span></span><span></span><span></span><span></span>
+      </div>
+      <h1>Csatorna</h1>
     </div>
-    <div class="log" id="log"></div>
-    <div class="composer">
-      <input type="text" id="msgInput" placeholder="Írj valamit..." autocomplete="off">
-      <button id="sendBtn">Küldés</button>
+
+    <div class="tabs">
+      <button class="tab active" id="tabLogin">Bejelentkezés</button>
+      <button class="tab" id="tabRegister">Regisztráció</button>
+    </div>
+
+    <div class="screen">
+      <label for="authUsername">Felhasználónév</label>
+      <input type="text" id="authUsername" placeholder="pl. patrik99" autocomplete="off">
+
+      <label for="authPassword">Jelszó</label>
+      <input type="password" id="authPassword" placeholder="legalább 6 karakter" autocomplete="off">
+
+      <button id="authSubmit">Bejelentkezés</button>
+      <div class="error" id="authError"></div>
     </div>
   </div>
 </div>
 
-<script type="module" src="app.js"></script>
+<!-- FŐALKALMAZÁS -->
+<div id="appScreen" class="app-shell hidden">
+  <aside class="sidebar">
+    <div class="sidebar-header">
+      <div class="me">
+        <div class="avatar" id="myAvatar"></div>
+        <span id="myUsername"></span>
+      </div>
+      <button class="icon-btn" id="logoutBtn" title="Kijelentkezés">⏻</button>
+    </div>
 
+    <div class="search-wrap">
+      <input type="text" id="searchInput" placeholder="Keress felhasználónév alapján..." autocomplete="off">
+      <div class="search-results hidden" id="searchResults"></div>
+    </div>
+
+    <div class="conv-list" id="convList">
+      <div class="empty-hint" id="convEmptyHint">Még nincs egy beszélgetésed sem. Keress valakit fent!</div>
+    </div>
+  </aside>
+
+  <main class="chat-panel">
+    <div class="empty-state" id="emptyState">
+      <div class="dial-graphic" aria-hidden="true">
+        <span></span><span></span><span></span><span></span><span></span>
+      </div>
+      <p>Válassz valakit a bal oldalon a beszélgetéshez</p>
+    </div>
+
+    <div class="chat-view hidden" id="chatView">
+      <div class="chat-header">
+        <div class="avatar" id="chatAvatar"></div>
+        <span id="chatUsername"></span>
+      </div>
+      <div class="log" id="log"></div>
+      <div class="composer">
+        <input type="text" id="msgInput" placeholder="Írj valamit..." autocomplete="off">
+        <button id="sendBtn">Küldés</button>
+      </div>
+    </div>
+  </main>
+</div>
+
+<script type="module" src="app.js"></script>
 </body>
 </html>
