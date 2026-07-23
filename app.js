@@ -511,7 +511,6 @@ async function selectChat(chatId, otherUid, otherUsername) {
             time;
     }
   });
-  });
   logEl.innerHTML = "";
   loadedMessageKeys.clear();
   detachMessagesListener();
