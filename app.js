@@ -232,8 +232,9 @@ function translateAuthError(e) {
 logoutBtn.addEventListener("click", async () => {
 
   await update(ref(db, "users/" + me.uid), {
-    online: false
-  });
+  online: false,
+  lastSeen: Date.now()
+});
 
   signOut(auth);
 
@@ -258,7 +259,10 @@ onAuthStateChanged(auth, async (user) => {
         online: true
       });
 
-      onDisconnect(ref(db, "users/" + me.uid + "/online")).set(false);
+      onDisconnect(ref(db, "users/" + me.uid)).update({
+        online: false,
+        lastSeen: serverTimestamp()
+      });
 
       authScreen.classList.add("hidden");
       appScreen.classList.remove("hidden");
@@ -459,12 +463,54 @@ async function selectChat(chatId, otherUid, otherUsername) {
   chatView.classList.remove("hidden");
   setAvatar(chatAvatar, otherUsername);
   chatUsername.textContent = otherUsername;
-  onValue(ref(db, "users/" + otherUid + "/online"), (snap) => {
-  if (snap.val() === true) {
-    chatStatus.textContent = "Aktív";
-  } else {
-    chatStatus.textContent = "Offline";
-  }
+  onValue(ref(db, "users/" + otherUid), (snap) => {
+    const user = snap.val();
+
+    if (!user) return;
+
+    if (user.online) {
+        chatStatus.textContent = "🟢 Aktív";
+        return;
+    }
+
+    if (!user.lastSeen) {
+        chatStatus.textContent = "🔴 Offline";
+        return;
+    }
+
+    const last = new Date(user.lastSeen);
+    const now = new Date();
+
+    const sameDay =
+        last.getFullYear() === now.getFullYear() &&
+        last.getMonth() === now.getMonth() &&
+        last.getDate() === now.getDate();
+
+    const yesterday = new Date(now);
+    yesterday.setDate(now.getDate() - 1);
+
+    const isYesterday =
+        last.getFullYear() === yesterday.getFullYear() &&
+        last.getMonth() === yesterday.getMonth() &&
+        last.getDate() === yesterday.getDate();
+
+    const time = last.toLocaleTimeString("hu-HU", {
+        hour: "2-digit",
+        minute: "2-digit"
+    });
+
+    if (sameDay) {
+        chatStatus.textContent = "🟡 Utoljára aktív: " + time;
+    } else if (isYesterday) {
+        chatStatus.textContent = "🔴 Utoljára aktív: tegnap " + time;
+    } else {
+        chatStatus.textContent =
+            "🔴 Utoljára aktív: " +
+            last.toLocaleDateString("hu-HU") +
+            " " +
+            time;
+    }
+  });
   });
   logEl.innerHTML = "";
   loadedMessageKeys.clear();
