@@ -517,42 +517,6 @@ onValue(ref(db, "users/" + otherUid), (snap) => {
     }
 });
 
-    const last = new Date(user.lastSeen);
-    const now = new Date();
-
-    const sameDay =
-        last.getFullYear() === now.getFullYear() &&
-        last.getMonth() === now.getMonth() &&
-        last.getDate() === now.getDate();
-
-    const yesterday = new Date(now);
-    yesterday.setDate(now.getDate() - 1);
-
-    const isYesterday =
-        last.getFullYear() === yesterday.getFullYear() &&
-        last.getMonth() === yesterday.getMonth() &&
-        last.getDate() === yesterday.getDate();
-
-    const time = last.toLocaleTimeString("hu-HU", {
-        hour: "2-digit",
-        minute: "2-digit"
-    });
-
-    if (sameDay) {
-    chatStatus.textContent = "🟡 Utoljára aktív: " + time;
-    chatStatus.style.color = "#facc15";
-    } else if (isYesterday) {
-    chatStatus.textContent = "🔴 Utoljára aktív: tegnap " + time;
-    chatStatus.style.color = "#ef4444";
-    } else {
-    chatStatus.textContent =
-        "🔴 Utoljára aktív: " +
-        last.toLocaleDateString("hu-HU") +
-        " " +
-        time;
-    chatStatus.style.color = "#ef4444";
-    }
-  });
   logEl.innerHTML = "";
   loadedMessageKeys.clear();
   detachMessagesListener();
