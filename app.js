@@ -505,11 +505,15 @@ async function sendMessage() {
   const { chatId, otherUid } = activeChat;
 
   try {
-    await push(ref(db, "chats/" + chatId + "/messages"), {
-      senderUid: me.uid,
-      senderName: me.username,
-      text,
-      ts: serverTimestamp()
+   const newMsg = push(ref(db, "chats/" + chatId + "/messages"));
+
+    await update(ref(db), {
+        ["chats/" + chatId + "/messages/" + newMsg.key]: {
+            senderUid: me.uid,
+            senderName: me.username,
+            text,
+            ts: Date.now()
+        }
     });
 
     const now = serverTimestamp();
