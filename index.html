@@ -1,251 +1,104 @@
 <!DOCTYPE html>
 <html lang="hu">
 <head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Csatorna — Biztonságos Vonal</title>
-<link rel="stylesheet" href="style.css">
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Csatorna</title>
+  <link rel="stylesheet" href="style.css">
 </head>
 <body>
-
-<!-- BEJELENTKEZÉS ÉS REGISZTRÁCIÓS PANEL -->
-<div id="authScreen" class="center-screen">
-  <div class="rig auth-card">
-    <div class="rig-head">
+  <!-- BETÖLTÉS -->
+  <div id="loadingScreen" class="center-screen">
+    <div class="brand-mark">
       <div class="dial-graphic" aria-hidden="true">
         <span></span><span></span><span></span><span></span><span></span>
       </div>
-      <h1>Csatorna</h1>
-    </div>
-
-    <div class="screen">
-      <label for="authUsername">Felhasználónév</label>
-      <input type="text" id="authUsername" placeholder="pl. patrik99" autocomplete="off">
-
-      <label for="authPassword">Jelszó</label>
-      <input type="password" id="authPassword" placeholder="legalább 6 karakter" autocomplete="off">
-
-      <!-- Két teljesen különálló, azonnal reagáló gomb -->
-      <button id="loginBtn" style="margin-top: 20px;">Bejelentkezés</button>
-      <button id="registerBtn" style="margin-top: 10px; border-color: #6fb8b0; color: #6fb8b0;">Új fiók regisztrációja</button>
-      
-      <div class="error" id="authError" style="display:none; margin-top: 15px; padding: 10px; border: 1px solid var(--danger); color: var(--danger); font-size: 13px; border-radius: 6px;"></div>
+      <p class="brand-name">Csatorna</p>
     </div>
   </div>
-</div>
-
-<!-- FŐALKALMAZÁS (CHATPANEL) -->
-<div id="appScreen" class="app-shell hidden">
-  <aside class="sidebar">
-    <div class="sidebar-header">
-      <div class="me">
-        <div class="avatar" id="myAvatar">-</div>
-        <span id="myUsername">...</span>
+  <!-- BEJELENTKEZÉS / REGISZTRÁCIÓ -->
+  <div id="authScreen" class="center-screen hidden">
+    <div class="auth-card">
+      <div class="auth-head">
+        <div class="dial-graphic" aria-hidden="true">
+          <span></span><span></span><span></span><span></span><span></span>
+        </div>
+        <h1>Csatorna</h1>
+        <p class="auth-sub">Üzenj barátoknak valós időben</p>
       </div>
-      <button class="icon-btn" id="logoutBtn" title="Kijelentkezés">⏻</button>
-    </div>
-
-    <div class="search-wrap">
-      <input type="text" id="searchInput" placeholder="Keress felhasználót..." autocomplete="off">
-      <div class="search-results hidden" id="searchResults"></div>
-    </div>
-
-    <div class="conv-list" id="convList">
-      <div class="empty-hint" id="convEmptyHint">Még nincs egy beszélgetésed sem. Keress valakit fent!</div>
-    </div>
-  </aside>
-
-  <main class="chat-panel">
-    <div class="empty-state" id="emptyState">
-      <div class="dial-graphic" aria-hidden="true">
-        <span></span><span></span><span></span><span></span><span></span>
+      <div class="tabs">
+        <button class="tab active" id="tabLogin" type="button">Bejelentkezés</button>
+        <button class="tab" id="tabRegister" type="button">Regisztráció</button>
       </div>
-      <p style="margin-top: 15px;">Válassz valakit a bal oldalon a beszélgetéshez</p>
-    </div>
-
-    <div class="chat-view hidden" id="chatView">
-      <div class="chat-header">
-        <div class="avatar" id="chatAvatar">-</div>
-        <span id="chatUsername">...</span>
-      </div>
-      <div class="log" id="log"></div>
-      <div class="composer">
-        <input type="text" id="msgInput" placeholder="Írj valamit..." autocomplete="off">
-        <button id="sendBtn">Küldés</button>
+      <div class="auth-form">
+        <label for="authUsername">Felhasználónév</label>
+        <input type="text" id="authUsername" placeholder="pl. patrik99" autocomplete="username" spellcheck="false">
+        <label for="authPassword">Jelszó</label>
+        <input type="password" id="authPassword" placeholder="legalább 6 karakter" autocomplete="current-password">
+        <button id="authSubmit" type="button">Bejelentkezés</button>
+        <div class="error" id="authError"></div>
       </div>
     </div>
-  </main>
-</div>
-
-<!-- Biztosan működő Firebase SDK könyvtárak -->
-<script src="https://gstatic.com"></script>
-<script src="https://gstatic.com"></script>
-<script src="https://gstatic.com"></script>
-
-<script>
-  // A te hajszálpontos, nagy Y betűs konfigurációd
-  const firebaseConfig = {
-    apiKey: "AIzaSyAYtpBEZNb4cEsbpsuWz2zpszkxCTDCN2g",
-    authDomain: "://firebaseapp.com",
-    databaseURL: "https://firebasedatabase.app",
-    projectId: "kobra-d3464",
-    storageBucket: "kobra-d3464.firebasestorage.app",
-    messagingSenderId: "127800460763",
-    appId: "1:127800460763:web:5e690d2638a4b7aaf093fe"
-  };
-
-  firebase.initializeApp(firebaseConfig);
-  const db = firebase.database();
-  const auth = firebase.auth();
-
-  const authScreen = document.getElementById('authScreen');
-  const appScreen = document.getElementById('appScreen');
-  const authUsername = document.getElementById('authUsername');
-  const authPassword = document.getElementById('authPassword');
-  const authError = document.getElementById('authError');
-  const myAvatar = document.getElementById('myAvatar');
-  const myUsernameLabel = document.getElementById('myUsername');
-  const logoutBtn = document.getElementById('logoutBtn');
-  const searchInput = document.getElementById('searchInput');
-  const searchResults = document.getElementById('searchResults');
-  const convList = document.getElementById('convList');
-  const convEmptyHint = document.getElementById('convEmptyHint');
-  const emptyState = document.getElementById('emptyState');
-  const chatView = document.getElementById('chatView');
-  const chatAvatar = document.getElementById('chatAvatar');
-  const chatUsernameLabel = document.getElementById('chatUsername');
-  const logEl = document.getElementById('log');
-  const msgInput = document.getElementById('msgInput');
-  const sendBtn = document.getElementById('sendBtn');
-
-  let currentMyName = "";
-  let currentActiveChatId = null;
-
-  function showError(msg) {
-    authError.textContent = msg;
-    authError.style.display = 'block';
-  }
-
-  // Felhasználó állapotváltozás figyelése
-  auth.onAuthStateChanged(function(user) {
-    if (user) {
-      db.ref('users/' + user.uid).get().then(function(snap) {
-        if (snap.exists()) {
-          currentMyName = snap.val().username;
-          myUsernameLabel.textContent = currentMyName.toUpperCase();
-          myAvatar.textContent = currentMyName.charAt(0).toUpperCase();
-          authScreen.classList.add('hidden');
-          appScreen.classList.remove('hidden');
-          loadConversations(user.uid);
-        }
-      });
-    } else {
-      appScreen.classList.add('hidden');
-      authScreen.classList.remove('hidden');
-    }
-  });
-
-  // REGISZTRÁCIÓ GOMB LERAGADÁS ELLEN
-  document.getElementById('registerBtn').addEventListener('click', function() {
-    authError.style.display = 'none';
-    const username = authUsername.value.trim();
-    const password = authPassword.value.trim();
-
-    if (!username || !password) { showError("HIBA: TÖLTS KI MINDEN MEZŐT!"); return; }
-    if (password.length < 6) { showError("HIBA: MINIMUM 6 KARAKTER JELSZÓ!"); return; }
-
-    const fakeEmail = username.toLowerCase() + "@kobra-chat.local";
-
-    db.ref('usersByName/' + username.toLowerCase()).get().then(function(nameCheck) {
-      if (nameCheck.exists()) {
-        showError("HIBA: EZ A NÉV MÁR FOGLALT!");
-      } else {
-        auth.createUserWithEmailAndPassword(fakeEmail, password)
-          .then(function(userCredential) {
-            const uid = userCredential.user.uid;
-            db.ref('users/' + uid).set({ username: username, email: fakeEmail });
-            db.ref('usersByName/' + username.toLowerCase()).set({ uid: uid });
-          })
-          .catch(function(error) {
-            showError("REGISZTRÁCIÓS HIBA: " + error.message.toUpperCase());
-          });
-      }
-    });
-  });
-
-  // BEJELENTKEZÉS GOMB
-  document.getElementById('loginBtn').addEventListener('click', function() {
-    authError.style.display = 'none';
-    const username = authUsername.value.trim();
-    const password = authPassword.value.trim();
-
-    if (!username || !password) { showError("HIBA: TÖLTS KI MINDEN MEZŐT!"); return; }
-    const fakeEmail = username.toLowerCase() + "@kobra-chat.local";
-
-    auth.signInWithEmailAndPassword(fakeEmail, password).catch(function(error) {
-      showError("HIBA: HIBÁS NÉV VAGY JELSZÓ!");
-    });
-  });
-
-  // KERESÉS LOGIKA
-  searchInput.addEventListener('input', function() {
-    const queryText = searchInput.value.trim().toLowerCase();
-    if (!queryText) { searchResults.classList.add('hidden'); return; }
-    
-    db.ref('usersByName').get().then(function(snap) {
-      searchResults.innerHTML = '';
-      let found = false;
-
-      if (snap.exists()) {
-        const allUsers = snap.val();
-        Object.keys(allUsers).forEach(function(name) {
-          if (name.includes(queryText) && name !== currentMyName.toLowerCase()) {
-            found = true;
-            const div = document.createElement('div');
-            div.className = 'search-item';
-            div.textContent = name.toUpperCase();
-            div.style.padding = "10px";
-            div.style.cursor = "pointer";
-            div.addEventListener('click', function() { startChat(allUsers[name].uid, name); });
-            searchResults.appendChild(div);
-          }
-        });
-      }
-      if (found) searchResults.classList.remove('hidden');
-      else searchResults.classList.add('hidden');
-    });
-  });
-
-  function startChat(targetUid, targetName) {
-    searchResults.classList.add('hidden');
-    searchInput.value = '';
-    const myUid = auth.currentUser.uid;
-    const chatId = myUid < targetUid ? myUid + "_" + targetUid : targetUid + "_" + myUid;
-
-    db.ref('userChats/' + myUid + '/' + chatId).set({ otherUid: targetUid, otherName: targetName.toUpperCase() });
-    db.ref('userChats/' + targetUid + '/' + chatId).set({ otherUid: myUid, otherName: currentMyName.toUpperCase() });
-    openChat(chatId, targetName.toUpperCase());
-  }
-
-  function loadConversations(uid) {
-    db.ref('userChats/' + uid).on('value', function(snap) {
-      convList.innerHTML = '';
-      const chats = snap.val();
-      if (!chats) { convEmptyHint.classList.remove('hidden'); return; }
-      
-      convEmptyHint.classList.add('hidden');
-      Object.keys(chats).forEach(function(chatId) {
-        const item = document.createElement('div');
-        item.className = 'conv-item';
-        if (chatId === currentActiveChatId) item.classList.add('active');
-        item.innerHTML = `<div class="avatar">${chats[chatId].otherName.charAt(0)}</div><span>${chats[chatId].otherName}</span>`;
-        item.addEventListener('click', function() { openChat(chatId, chats[chatId].otherName); });
-        convList.appendChild(item);
-      });
-    });
-  }
-
-  function openChat(chatId, otherName) {
-    currentActiveChatId = chatId;
-    emptyState.classList.add('hidden');
-    chatView.classList.remove('hidden');
+  </div>
+  <!-- FŐALKALMAZÁS -->
+  <div id="appScreen" class="app-shell hidden">
+    <aside class="sidebar">
+      <header class="sidebar-header">
+        <div class="brand-inline">
+          <div class="dial-graphic small" aria-hidden="true">
+            <span></span><span></span><span></span><span></span><span></span>
+          </div>
+          <span>Csatorna</span>
+        </div>
+        <button class="icon-btn" id="logoutBtn" type="button" title="Kijelentkezés" aria-label="Kijelentkezés">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
+        </button>
+      </header>
+      <div class="me-bar">
+        <div class="avatar" id="myAvatar"></div>
+        <div class="me-info">
+          <span class="me-label">Te</span>
+          <span class="me-name" id="myUsername"></span>
+        </div>
+      </div>
+      <div class="search-wrap">
+        <svg class="search-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+        <input type="text" id="searchInput" placeholder="Keress felhasználónév alapján..." autocomplete="off" spellcheck="false">
+        <div class="search-results hidden" id="searchResults"></div>
+      </div>
+      <div class="conv-section">
+        <h2 class="section-title">Üzenetek</h2>
+        <div class="conv-list" id="convList">
+          <div class="empty-hint" id="convEmptyHint">Még nincs beszélgetésed. Keress valakit fent!</div>
+        </div>
+      </div>
+    </aside>
+    <main class="chat-panel">
+      <div class="empty-state" id="emptyState">
+        <div class="empty-icon">
+          <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+        </div>
+        <h2>Üzeneteid</h2>
+        <p>Válassz egy beszélgetést bal oldalt, vagy keress valakit új csevegéshez.</p>
+      </div>
+      <div class="chat-view hidden" id="chatView">
+        <header class="chat-header">
+          <div class="avatar" id="chatAvatar"></div>
+          <div class="chat-header-text">
+            <span id="chatUsername"></span>
+            <span class="chat-status">Aktív</span>
+          </div>
+        </header>
+        <div class="log" id="log"></div>
+        <div class="composer">
+          <input type="text" id="msgInput" placeholder="Írj valamit..." autocomplete="off">
+          <button id="sendBtn" type="button" aria-label="Küldés">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
+          </button>
+        </div>
+      </div>
+    </main>
+  </div>
+  <script type="module" src="app.js"></script>
+</body>
+</html>
