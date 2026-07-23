@@ -1,335 +1,221 @@
-import { initializeApp } from "https://www.gstatic.com/firebasejs/10.13.0/firebase-app.js";
-import {
-  getAuth, createUserWithEmailAndPassword, signInWithEmailAndPassword,
-  onAuthStateChanged, signOut
-} from "https://www.gstatic.com/firebasejs/10.13.0/firebase-auth.js";
-import {
-  getDatabase, ref, get, update, runTransaction, onValue, off,
-  query, orderByKey, orderByChild, startAt, endAt, limitToFirst,
-  onChildAdded, push, serverTimestamp
-} from "https://www.gstatic.com/firebasejs/10.13.0/firebase-database.js";
-import { firebaseConfig } from "./firebase-config.js";
+import { initializeApp } from "https://gstatic.com";
+import { getDatabase, ref, set, get, child, push, onChildAdded, onValue, serverTimestamp } from "https://gstatic.com";
+import { initializeAuth, getAuth, createUserWithEmailAndPassword, signInWithEmailAndPassword, onAuthStateChanged, signOut } from "https://gstatic.com";
 
-const EMAIL_SUFFIX = "@kobra-chat.local";
+// A te pontos, ellenőrzött konfigurációd
+const firebaseConfig = {
+  apiKey: "AIzaSyAytpBEZNb4cEsbpsuWz2zpszkxCTDCN2g",
+  authDomain: "://firebaseapp.com",
+  databaseURL: "https://firebasedatabase.app",
+  projectId: "kobra-d3464",
+  storageBucket: "kobra-d3464.firebasestorage.app",
+  messagingSenderId: "127800460763",
+  appId: "1:127800460763:web:5e690d2638a4b7aaf093fe"
+};
 
 const app = initializeApp(firebaseConfig);
-const auth = getAuth(app);
 const db = getDatabase(app);
+const auth = getAuth(app);
 
-// ---------- DOM ----------
+// Kezelőfelület elemei
 const loadingScreen = document.getElementById('loadingScreen');
 const authScreen = document.getElementById('authScreen');
 const appScreen = document.getElementById('appScreen');
-
 const tabLogin = document.getElementById('tabLogin');
 const tabRegister = document.getElementById('tabRegister');
 const authUsername = document.getElementById('authUsername');
 const authPassword = document.getElementById('authPassword');
 const authSubmit = document.getElementById('authSubmit');
 const authError = document.getElementById('authError');
-
 const myAvatar = document.getElementById('myAvatar');
-const myUsernameEl = document.getElementById('myUsername');
+const myUsernameLabel = document.getElementById('myUsername');
 const logoutBtn = document.getElementById('logoutBtn');
-
 const searchInput = document.getElementById('searchInput');
 const searchResults = document.getElementById('searchResults');
-
 const convList = document.getElementById('convList');
 const convEmptyHint = document.getElementById('convEmptyHint');
-
 const emptyState = document.getElementById('emptyState');
 const chatView = document.getElementById('chatView');
 const chatAvatar = document.getElementById('chatAvatar');
-const chatUsername = document.getElementById('chatUsername');
+const chatUsernameLabel = document.getElementById('chatUsername');
 const logEl = document.getElementById('log');
 const msgInput = document.getElementById('msgInput');
 const sendBtn = document.getElementById('sendBtn');
 
-// ---------- STATE ----------
-let mode = 'login'; // vagy 'register'
-let me = { uid: null, username: null };
-let activeChat = null; // { chatId, otherUid, otherUsername }
-let messagesRef = null;
-let messagesUnsub = null;
-let convListenerAttached = false;
+let isLoginMode = true;
+let currentMyName = "";
+let currentActiveChatId = null;
+let currentChatUnsubscribe = null;
 
-// ---------- SEGÉD ----------
-function showError(msg){
-  authError.textContent = msg;
-  authError.style.display = 'block';
-}
-function clearError(){
-  authError.style.display = 'none';
-}
-function escapeHtml(s){
-  const d = document.createElement('div');
-  d.textContent = s;
-  return d.innerHTML;
-}
-function initials(name){
-  return (name || '?').slice(0, 2).toUpperCase();
-}
-function colorFor(name){
-  let hash = 0;
-  for(let i = 0; i < name.length; i++) hash = name.charCodeAt(i) + ((hash << 5) - hash);
-  const hue = Math.abs(hash) % 360;
-  return `hsl(${hue}, 55%, 45%)`;
-}
-function formatTime(ts){
-  if(!ts) return '';
-  const d = new Date(ts);
-  const now = new Date();
-  const sameDay = d.toDateString() === now.toDateString();
-  if(sameDay) return d.toLocaleTimeString('hu-HU', {hour:'2-digit', minute:'2-digit'});
-  return d.toLocaleDateString('hu-HU', {month:'short', day:'numeric'});
-}
-
-// ---------- AUTH TAB VÁLTÁS ----------
+// Tab váltás logika
 tabLogin.addEventListener('click', () => {
-  mode = 'login';
-  tabLogin.classList.add('active');
-  tabRegister.classList.remove('active');
-  authSubmit.textContent = 'Bejelentkezés';
-  clearError();
+  isLoginMode = true; tabLogin.classList.add('active'); tabRegister.classList.remove('active');
+  authSubmit.textContent = "Bejelentkezés"; authError.style.display = 'none';
 });
 tabRegister.addEventListener('click', () => {
-  mode = 'register';
-  tabRegister.classList.add('active');
-  tabLogin.classList.remove('active');
-  authSubmit.textContent = 'Regisztráció';
-  clearError();
+  isLoginMode = false; tabLogin.classList.remove('active'); tabRegister.classList.add('active');
+  authSubmit.textContent = "Regisztráció"; authError.style.display = 'none';
 });
 
-authSubmit.addEventListener('click', async () => {
-  clearError();
-  const username = authUsername.value.trim();
-  const password = authPassword.value;
-
-  if(!username || username.length < 3){ showError('A felhasználónév legalább 3 karakter legyen.'); return; }
-  if(!/^[a-zA-Z0-9_.-]+$/.test(username)){ showError('Csak betű, szám, "_", "-", "." engedélyezett a névben.'); return; }
-  if(!password || password.length < 6){ showError('A jelszó legalább 6 karakter legyen.'); return; }
-
-  authSubmit.disabled = true;
-  const email = username + EMAIL_SUFFIX;
-
-  try{
-    if(mode === 'register'){
-      // A createUserWithEmailAndPassword maga garantálja az egyediséget,
-      // mert a felhasználónévből mindig ugyanaz az e-mail cím lesz.
-      // Ha a név foglalt, ez itt "email-already-in-use" hibával elutasít.
-      const cred = await createUserWithEmailAndPassword(auth, email, password);
-      // Csak MOST, hogy már be vagyunk jelentkezve, írhatunk az adatbázisba.
-      await update(ref(db), {
-        ['usersByName/' + username]: cred.user.uid,
-        ['users/' + cred.user.uid]: { username, createdAt: serverTimestamp() }
-      });
-    } else {
-      await signInWithEmailAndPassword(auth, email, password);
-    }
-  } catch(e){
-    showError(translateAuthError(e));
-  } finally {
-    authSubmit.disabled = false;
-  }
-});
-
-function translateAuthError(e){
-  const code = e.code || '';
-  if(code.includes('wrong-password') || code.includes('invalid-credential')) return 'Hibás felhasználónév vagy jelszó.';
-  if(code.includes('user-not-found')) return 'Nincs ilyen felhasználó.';
-  if(code.includes('email-already-in-use')) return 'Ez a felhasználónév már foglalt.';
-  if(code.includes('weak-password')) return 'A jelszó túl gyenge, legalább 6 karakter kell.';
-  if(code.includes('network-request-failed')) return 'Nincs internetkapcsolat.';
-  return 'Hiba történt: ' + (e.message || code);
-}
-
-logoutBtn.addEventListener('click', () => signOut(auth));
-
-// ---------- AUTH ÁLLAPOT FIGYELÉSE (ez menti el a bejelentkezést) ----------
+// Felhasználó állapot figyelése
 onAuthStateChanged(auth, async (user) => {
-  loadingScreen.classList.add('hidden');
-  if(user){
-    const snap = await get(ref(db, 'users/' + user.uid));
-    const data = snap.val() || {};
-    me = { uid: user.uid, username: data.username || user.email.split('@')[0] };
-
-    myUsernameEl.textContent = me.username;
-    myAvatar.textContent = initials(me.username);
-    myAvatar.style.background = colorFor(me.username);
-
-    authScreen.classList.add('hidden');
-    appScreen.classList.remove('hidden');
-
-    attachConvListener();
+  if (user) {
+    const userSnap = await get(ref(db, `users/${user.uid}`));
+    if (userSnap.exists()) {
+      currentMyName = userSnap.val().username;
+      myUsernameLabel.textContent = currentMyName;
+      myAvatar.textContent = currentMyName.charAt(0).toUpperCase();
+      
+      loadingScreen.classList.add('hidden');
+      authScreen.classList.add('hidden');
+      appScreen.classList.remove('hidden');
+      
+      loadConversations(user.uid);
+    }
   } else {
-    me = { uid: null, username: null };
+    loadingScreen.classList.add('hidden');
     appScreen.classList.add('hidden');
     authScreen.classList.remove('hidden');
-    resetChatView();
   }
 });
 
-// ---------- FELHASZNÁLÓ-KERESÉS ----------
-let searchTimer = null;
-searchInput.addEventListener('input', () => {
-  clearTimeout(searchTimer);
-  const term = searchInput.value.trim();
-  if(!term){
-    searchResults.classList.add('hidden');
-    searchResults.innerHTML = '';
-    return;
-  }
-  searchTimer = setTimeout(() => runSearch(term), 200);
-});
+// Küldés gomb / Regisztráció és Belépés indítása
+authSubmit.addEventListener('click', async () => {
+  authError.style.display = 'none';
+  const username = authUsername.value.trim();
+  const password = authPassword.value.trim();
 
-async function runSearch(term){
-  const usersRef = ref(db, 'usersByName');
-  const q = query(usersRef, orderByKey(), startAt(term), endAt(term + '\uf8ff'), limitToFirst(8));
-  const snap = await get(q);
-  const results = [];
-  snap.forEach(child => {
-    if(child.key !== me.username) results.push({ username: child.key, uid: child.val() });
-  });
+  if (!username || !password) { authError.textContent = "Töltsd ki az összes mezőt!"; authError.style.display = 'block'; return; }
+  if (password.length < 6) { authError.textContent = "A jelszónak legalább 6 karakternek kell lennie!"; authError.style.display = 'block'; return; }
 
-  if(results.length === 0){
-    searchResults.innerHTML = '<div class="search-empty">Nincs ilyen felhasználó.</div>';
+  const fakeEmail = username.toLowerCase() + "@kobra-chat.local";
+
+  if (!isLoginMode) {
+    // REGISZTRÁCIÓ (Claude javított sorrendje szerint)
+    try {
+      const userCredential = await createUserWithEmailAndPassword(auth, fakeEmail, password);
+      const uid = userCredential.user.uid;
+      
+      // Most már be vagyunk jelentkezve (auth != null), így a szabály engedi az írást
+      await set(ref(db, `users/${uid}`), { username: username, email: fakeEmail });
+      await set(ref(db, `usersByName/${username.toLowerCase()}`), { uid: uid });
+    } catch (error) {
+      authError.textContent = "Regisztrációs hiba: " + error.message;
+      authError.style.display = 'block';
+    }
   } else {
-    searchResults.innerHTML = '';
-    results.forEach(r => {
-      const item = document.createElement('div');
-      item.className = 'search-item';
-      item.innerHTML =
-        '<div class="avatar small" style="background:' + colorFor(r.username) + '">' + initials(r.username) + '</div>' +
-        '<span>' + escapeHtml(r.username) + '</span>';
-      item.addEventListener('click', () => {
-        searchInput.value = '';
-        searchResults.classList.add('hidden');
-        searchResults.innerHTML = '';
-        openChatWith(r.uid, r.username);
-      });
-      searchResults.appendChild(item);
-    });
-  }
-  searchResults.classList.remove('hidden');
-}
-
-document.addEventListener('click', (e) => {
-  if(!searchResults.contains(e.target) && e.target !== searchInput){
-    searchResults.classList.add('hidden');
+    // BEJELENTKEZÉS
+    try {
+      await signInWithEmailAndPassword(auth, fakeEmail, password);
+    } catch (error) {
+      authError.textContent = "Hibás felhasználónév vagy jelszó!";
+      authError.style.display = 'block';
+    }
   }
 });
 
-// ---------- BESZÉLGETÉS MEGNYITÁSA / LÉTREHOZÁSA ----------
-function chatIdFor(uidA, uidB){
-  return [uidA, uidB].sort().join('_');
-}
+// Keresés logika
+searchInput.addEventListener('input', async () => {
+  const queryText = searchInput.value.trim().toLowerCase();
+  if (!queryText) { searchResults.classList.add('hidden'); return; }
+  
+  const snap = await get(ref(db, 'usersByName'));
+  searchResults.innerHTML = '';
+  let found = false;
 
-async function openChatWith(otherUid, otherUsername){
-  const chatId = chatIdFor(me.uid, otherUid);
-  const myEntryRef = ref(db, 'userChats/' + me.uid + '/' + chatId);
-  const snap = await get(myEntryRef);
-
-  if(!snap.exists()){
-    const now = serverTimestamp();
-    await update(ref(db), {
-      ['userChats/' + me.uid + '/' + chatId]: { otherUid, otherUsername, lastMessage: '', lastTs: now },
-      ['userChats/' + otherUid + '/' + chatId]: { otherUid: me.uid, otherUsername: me.username, lastMessage: '', lastTs: now }
+  if (snap.exists()) {
+    const allUsers = snap.val();
+    Object.keys(allUsers).forEach(name => {
+      if (name.includes(queryText) && name !== currentMyName.toLowerCase()) {
+        found = true;
+        const div = document.createElement('div');
+        div.className = 'search-item';
+        div.textContent = name.toUpperCase();
+        div.addEventListener('click', () => startChat(allUsers[name].uid, name));
+        searchResults.appendChild(div);
+      }
     });
   }
-  selectChat(chatId, otherUid, otherUsername);
+  
+  if (found) searchResults.classList.remove('hidden');
+  else searchResults.classList.add('hidden');
+});
+
+// Új beszélgetés indítása
+async function startChat(targetUid, targetName) {
+  searchResults.classList.add('hidden');
+  searchInput.value = '';
+  const myUid = auth.currentUser.uid;
+  const chatId = myUid < targetUid ? `${myUid}_${targetUid}` : `${targetUid}_${myUid}`;
+
+  await set(ref(db, `userChats/${myUid}/${chatId}`), { otherUid: targetUid, otherName: targetName.toUpperCase() });
+  await set(ref(db, `userChats/${targetUid}/${chatId}`), { otherUid: myUid, otherName: currentMyName.toUpperCase() });
+
+  openChat(chatId, targetName.toUpperCase());
 }
 
-// ---------- BESZÉLGETÉS-LISTA (KEZDŐOLDAL) ----------
-function attachConvListener(){
-  if(convListenerAttached) return;
-  convListenerAttached = true;
-  const convRef = ref(db, 'userChats/' + me.uid);
-  onValue(convRef, snap => {
-    const data = snap.val() || {};
-    const items = Object.entries(data).map(([chatId, v]) => ({ chatId, ...v }));
-    items.sort((a, b) => (b.lastTs || 0) - (a.lastTs || 0));
-
-    convEmptyHint.style.display = items.length === 0 ? 'block' : 'none';
-    convList.querySelectorAll('.conv-item').forEach(el => el.remove());
-
-    items.forEach(item => {
-      const el = document.createElement('div');
-      el.className = 'conv-item' + (activeChat && activeChat.chatId === item.chatId ? ' active' : '');
-      el.innerHTML =
-        '<div class="avatar" style="background:' + colorFor(item.otherUsername) + '">' + initials(item.otherUsername) + '</div>' +
-        '<div class="conv-text">' +
-          '<div class="conv-name">' + escapeHtml(item.otherUsername) + '</div>' +
-          '<div class="conv-last">' + escapeHtml(item.lastMessage || 'Nincs még üzenet') + '</div>' +
-        '</div>' +
-        '<div class="conv-time">' + formatTime(item.lastTs) + '</div>';
-      el.addEventListener('click', () => selectChat(item.chatId, item.otherUid, item.otherUsername));
-      convList.appendChild(el);
+// Beszélgetések listájának betöltése
+function loadConversations(uid) {
+  onValue(ref(db, `userChats/${uid}`), (snap) => {
+    convList.innerHTML = '';
+    const chats = snap.val();
+    if (!chats) { convEmptyHint.classList.remove('hidden'); return; }
+    
+    convEmptyHint.classList.add('hidden');
+    Object.keys(chats).forEach(chatId => {
+      const item = document.createElement('div');
+      item.className = 'conv-item';
+      if (chatId === currentActiveChatId) item.classList.add('active');
+      item.innerHTML = `<div class="avatar">${chats[chatId].otherName.charAt(0)}</div><span>${chats[chatId].otherName}</span>`;
+      item.addEventListener('click', () => openChat(chatId, chats[chatId].otherName));
+      convList.appendChild(item);
     });
   });
 }
 
-// ---------- AKTÍV BESZÉLGETÉS MEGJELENÍTÉSE ----------
-function resetChatView(){
-  activeChat = null;
-  if(messagesUnsub){ messagesUnsub(); messagesUnsub = null; }
-  emptyState.classList.remove('hidden');
-  chatView.classList.add('hidden');
-  logEl.innerHTML = '';
-}
-
-function selectChat(chatId, otherUid, otherUsername){
-  activeChat = { chatId, otherUid, otherUsername };
-
-  document.querySelectorAll('.conv-item').forEach(el => el.classList.remove('active'));
-
+// Egy adott chat megnyitása
+function openChat(chatId, otherName) {
+  currentActiveChatId = chatId;
   emptyState.classList.add('hidden');
   chatView.classList.remove('hidden');
-  chatAvatar.textContent = initials(otherUsername);
-  chatAvatar.style.background = colorFor(otherUsername);
-  chatUsername.textContent = otherUsername;
+  chatUsernameLabel.textContent = otherName;
+  chatAvatar.textContent = otherName.charAt(0);
   logEl.innerHTML = '';
 
-  if(messagesUnsub){ messagesUnsub(); messagesUnsub = null; }
+  if (currentChatUnsubscribe) currentChatUnsubscribe();
 
-  messagesRef = ref(db, 'chats/' + chatId + '/messages');
-  messagesUnsub = onChildAdded(messagesRef, snap => appendMessage(snap.val()));
+  const messagesRef = query(ref(db, `chats/${chatId}`));
+  currentChatUnsubscribe = onChildAdded(messagesRef, (snap) => {
+    const m = snap.val();
+    const div = document.createElement('div');
+    div.className = 'entry ' + (m.uid === auth.currentUser.uid ? 'mine' : '');
+    const time = m.ts ? new Date(m.ts).toLocaleTimeString('hu-HU', { hour: '2-digit', minute: '2-digit' }) : '';
+    
+    div.innerHTML = `<div class="who">${m.name}</div><div class="bubble">${m.text}</div><div class="ts">${time}</div>`;
+    logEl.appendChild(div);
+    logEl.scrollTop = logEl.scrollHeight;
+  });
 
-  msgInput.focus();
+  // Frissítjük a listában az aktív osztályt
+  Array.from(convList.children).forEach(child => {
+    child.classList.remove('active');
+  });
 }
 
-function appendMessage(m){
-  const div = document.createElement('div');
-  div.className = 'entry ' + (m.senderUid === me.uid ? 'mine' : '');
-  div.innerHTML =
-    '<div class="bubble">' + escapeHtml(m.text) + '</div>' +
-    '<div class="ts">' + formatTime(m.ts) + '</div>';
-  logEl.appendChild(div);
-  logEl.scrollTop = logEl.scrollHeight;
-}
-
-// ---------- ÜZENETKÜLDÉS ----------
-sendBtn.addEventListener('click', sendMessage);
-msgInput.addEventListener('keydown', e => { if(e.key === 'Enter') sendMessage(); });
-
-async function sendMessage(){
+// Üzenetküldés
+function sendMessage() {
   const text = msgInput.value.trim();
-  if(!text || !activeChat) return;
+  if (!text || !currentActiveChatId) return;
   msgInput.value = '';
 
-  const { chatId, otherUid } = activeChat;
-  await push(ref(db, 'chats/' + chatId + '/messages'), {
-    senderUid: me.uid,
-    senderName: me.username,
-    text,
+  push(ref(db, `chats/${currentActiveChatId}`), {
+    uid: auth.currentUser.uid,
+    name: currentMyName,
+    text: text,
     ts: serverTimestamp()
   });
-
-  const now = serverTimestamp();
-  await update(ref(db), {
-    ['userChats/' + me.uid + '/' + chatId + '/lastMessage']: text,
-    ['userChats/' + me.uid + '/' + chatId + '/lastTs']: now,
-    ['userChats/' + otherUid + '/' + chatId + '/lastMessage']: text,
-    ['userChats/' + otherUid + '/' + chatId + '/lastTs']: now
-  });
 }
+
+sendBtn.addEventListener('click', sendMessage);
+msgInput.addEventListener('keydown', (e) => { if (e.key === 'Enter') sendMessage(); });
+logoutBtn.addEventListener('click', () => { signOut(auth); });
